@@ -8,4 +8,8 @@ public record LlmProperties(
         String key,
         String model
 ) {
+    @Override
+    public String toString() {
+        return "LlmProperties{url='" + url + "', key='<redacted>', model='" + model + "'}";
+    }
 }

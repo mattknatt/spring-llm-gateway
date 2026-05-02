@@ -1,6 +1,5 @@
 package org.example.springllmgateway.service;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.springllmgateway.client.LlmWebClient;
 import org.example.springllmgateway.memory.ConversationMemory;
@@ -9,6 +8,7 @@ import org.example.springllmgateway.model.ChatResponse;
 import org.example.springllmgateway.model.Message;
 import org.example.springllmgateway.personality.PersonalityMapper;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,10 +21,8 @@ public class ChatService {
     private final ConversationMemory conversationMemory;
     private final LlmWebClient llmWebClient;
 
-    public ChatResponse chat(@Valid ChatRequest request) {
-
+    public Mono<ChatResponse> chat(ChatRequest request) {
         String systemPrompt = personalityMapper.getPrompt(request.personality());
-
         List<Message> history = conversationMemory.getHistory(request.sessionId());
 
         List<Message> messages = new ArrayList<>();
@@ -32,12 +30,11 @@ public class ChatService {
         messages.addAll(history);
         messages.add(new Message("user", request.message()));
 
-        String reply = llmWebClient.sendMessages(messages);
-
-        conversationMemory.append(request.sessionId(), new Message("user", request.message()));
-        conversationMemory.append(request.sessionId(), new Message("assistant", reply));
-
-        return new ChatResponse(reply, request.sessionId());
-
+        return llmWebClient.sendMessages(messages)
+                .doOnNext(reply -> {
+                    conversationMemory.append(request.sessionId(), new Message("user", request.message()));
+                    conversationMemory.append(request.sessionId(), new Message("assistant", reply));
+                })
+                .map(reply -> new ChatResponse(reply, request.sessionId()));
     }
 }

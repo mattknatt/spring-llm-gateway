@@ -1,4 +1,4 @@
-package org.example.springllmgateway;
+package org.example.springllmgateway.exception;
 
 public class LlmUnavailableException extends RuntimeException {
     public LlmUnavailableException(String message) {

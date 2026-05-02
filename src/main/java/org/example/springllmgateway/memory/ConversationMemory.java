@@ -1,36 +1,39 @@
 package org.example.springllmgateway.memory;
 
-import lombok.RequiredArgsConstructor;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.example.springllmgateway.model.Message;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Component
-@RequiredArgsConstructor
 public class ConversationMemory {
 
-    private final Map<String, List<Message>> store = new ConcurrentHashMap<>();
-    private static final int MAX_HISTORY= 20;
+    private static final int MAX_HISTORY = 20;
+
+    private final Cache<String, List<Message>> cache = Caffeine.newBuilder()
+            .maximumSize(1000)
+            .expireAfterAccess(30, TimeUnit.MINUTES)
+            .build();
 
     public List<Message> getHistory(String sessionId) {
         if (sessionId == null) return List.of();
-        return store.getOrDefault(sessionId, List.of());
+        List<Message> history = cache.getIfPresent(sessionId);
+        return history != null ? new ArrayList<>(history) : List.of();
     }
 
     public void append(String sessionId, Message message) {
         if (sessionId == null) return;
-        store.computeIfAbsent(sessionId, k -> new ArrayList<>()).add(message);
-        trimHistory(sessionId);
-    }
-
-    private void trimHistory(String sessionId) {
-        List<Message> history = store.get(sessionId);
-        if (history != null && history.size() > MAX_HISTORY) {
-            store.put(sessionId, new ArrayList<>(history.subList(history.size() - MAX_HISTORY, history.size())));
-        }
+        cache.asMap().compute(sessionId, (k, existing) -> {
+            List<Message> history = existing != null ? new ArrayList<>(existing) : new ArrayList<>();
+            history.add(message);
+            if (history.size() > MAX_HISTORY) {
+                return new ArrayList<>(history.subList(history.size() - MAX_HISTORY, history.size()));
+            }
+            return history;
+        });
     }
 }
