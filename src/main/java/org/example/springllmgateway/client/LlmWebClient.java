@@ -25,7 +25,7 @@ public class LlmWebClient {
         LlmRequest request = new LlmRequest(llmProperties.model(), messages);
 
         return webClient.post()
-                .uri("/api/v1/chat/completions")
+                .uri("/chat/completions")
                 .bodyValue(request)
                 .retrieve()
                 .onStatus(status -> status.value() == 429 || status.value() == 503,
