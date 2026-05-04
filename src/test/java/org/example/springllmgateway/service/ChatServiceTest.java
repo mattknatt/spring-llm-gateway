@@ -83,7 +83,9 @@ class ChatServiceTest {
 
         ChatResponse response = chatService.chat(request);
 
-        assertThat(response.sessionId()).isNotBlank().isNotEqualTo("   ");
+        assertThat(response.sessionId()).isNotBlank();
+        verify(conversationMemory).append(eq(response.sessionId()), eq(new Message("user", "hi")));
+        verify(conversationMemory).append(eq(response.sessionId()), eq(new Message("assistant", "hello")));
     }
 
     @Test
