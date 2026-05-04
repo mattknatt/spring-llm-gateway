@@ -61,6 +61,32 @@ class ChatServiceTest {
     }
 
     @Test
+    void chat_generatesSessionId_whenRequestSessionIdIsNull() {
+        ChatRequest request = new ChatRequest("helper", "hi", null);
+        when(personalityMapper.getPrompt("helper")).thenReturn("p");
+        when(conversationMemory.getHistory(any())).thenReturn(List.of());
+        when(llmClient.sendMessages(any())).thenReturn("hello");
+
+        ChatResponse response = chatService.chat(request);
+
+        assertThat(response.sessionId()).isNotBlank();
+        verify(conversationMemory).append(eq(response.sessionId()), eq(new Message("user", "hi")));
+        verify(conversationMemory).append(eq(response.sessionId()), eq(new Message("assistant", "hello")));
+    }
+
+    @Test
+    void chat_generatesSessionId_whenRequestSessionIdIsBlank() {
+        ChatRequest request = new ChatRequest("helper", "hi", "   ");
+        when(personalityMapper.getPrompt("helper")).thenReturn("p");
+        when(conversationMemory.getHistory(any())).thenReturn(List.of());
+        when(llmClient.sendMessages(any())).thenReturn("hello");
+
+        ChatResponse response = chatService.chat(request);
+
+        assertThat(response.sessionId()).isNotBlank().isNotEqualTo("   ");
+    }
+
+    @Test
     void chat_appendsUserAndAssistantMessages_afterLlmCall() {
         ChatRequest request = new ChatRequest("helper", "ping", "s1");
         when(personalityMapper.getPrompt("helper")).thenReturn("p");

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -21,8 +22,12 @@ public class ChatService {
     private final LlmClient llmClient;
 
     public ChatResponse chat(ChatRequest request) {
+        String sessionId = (request.sessionId() == null || request.sessionId().isBlank())
+                ? UUID.randomUUID().toString()
+                : request.sessionId();
+
         String systemPrompt = personalityMapper.getPrompt(request.personality());
-        List<Message> history = conversationMemory.getHistory(request.sessionId());
+        List<Message> history = conversationMemory.getHistory(sessionId);
 
         List<Message> messages = new ArrayList<>();
         messages.add(new Message("system", systemPrompt));
@@ -30,8 +35,8 @@ public class ChatService {
         messages.add(new Message("user", request.message()));
 
         String reply = llmClient.sendMessages(messages);
-        conversationMemory.append(request.sessionId(), new Message("user", request.message()));
-        conversationMemory.append(request.sessionId(), new Message("assistant", reply));
-        return new ChatResponse(reply, request.sessionId());
+        conversationMemory.append(sessionId, new Message("user", request.message()));
+        conversationMemory.append(sessionId, new Message("assistant", reply));
+        return new ChatResponse(reply, sessionId);
     }
 }
