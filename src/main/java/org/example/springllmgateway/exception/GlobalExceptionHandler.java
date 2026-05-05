@@ -18,9 +18,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleLlmClientError(LlmClientException ex) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", Instant.now().toString());
-        body.put("status", 502);
+        body.put("status", ex.getStatusCode());
         body.put("message", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
+        return ResponseEntity.status(ex.getStatusCode()).body(body);
     }
 
     @ExceptionHandler(LlmUnavailableException.class)

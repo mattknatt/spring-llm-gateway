@@ -35,7 +35,7 @@ public class LlmClient {
                 .onStatus(status -> status.value() == 429 || status.is5xxServerError(),
                         (req, res) -> { throw new LlmUnavailableException("LLM unavailable"); })
                 .onStatus(status -> status.is4xxClientError() && status.value() != 429,
-                        (req, res) -> { throw new LlmClientException("LLM rejected request with status " + res.getStatusCode().value()); })
+                        (req, res) -> { int code = res.getStatusCode().value(); throw new LlmClientException(code, "LLM rejected request with status " + code); })
                 .body(LlmResponse.class);
         if (response == null || response.choices() == null || response.choices().isEmpty()) {
             throw new IllegalStateException("LLM returned no choices");

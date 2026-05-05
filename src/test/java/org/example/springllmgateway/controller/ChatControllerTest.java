@@ -61,17 +61,31 @@ class ChatControllerTest {
     }
 
     @Test
-    void post_returns502_whenServiceThrowsLlmClientException() throws Exception {
-        when(chatService.chat(any())).thenThrow(new LlmClientException("LLM rejected request with status 401"));
+    void post_passesThrough401_whenServiceThrowsLlmClientException() throws Exception {
+        when(chatService.chat(any())).thenThrow(new LlmClientException(401, "LLM rejected request with status 401"));
 
         mockMvc.perform(post("/api/v1/chat")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"personality":"helper","message":"hi","sessionId":"s1"}
                                 """))
-                .andExpect(status().isBadGateway())
-                .andExpect(jsonPath("$.status").value(502))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.message").value("LLM rejected request with status 401"));
+    }
+
+    @Test
+    void post_passesThrough403_whenServiceThrowsLlmClientException() throws Exception {
+        when(chatService.chat(any())).thenThrow(new LlmClientException(403, "LLM rejected request with status 403"));
+
+        mockMvc.perform(post("/api/v1/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"personality":"helper","message":"hi","sessionId":"s1"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("LLM rejected request with status 403"));
     }
 
     @Test
