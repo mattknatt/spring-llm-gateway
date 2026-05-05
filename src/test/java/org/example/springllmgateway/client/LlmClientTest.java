@@ -2,7 +2,6 @@ package org.example.springllmgateway.client;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
-import org.example.springllmgateway.exception.LlmUnavailableException;
 import org.example.springllmgateway.model.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
