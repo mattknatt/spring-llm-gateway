@@ -2,6 +2,8 @@ package org.example.springllmgateway.client;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
+import org.example.springllmgateway.exception.LlmClientException;
+import org.example.springllmgateway.exception.LlmUnavailableException;
 import org.example.springllmgateway.model.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -71,6 +73,81 @@ class LlmClientTest {
         assertThatThrownBy(() -> llmClient.sendMessages(List.of(new Message("user", "hi"))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("no choices");
+    }
+
+    @Test
+    void sendMessages_throwsLlmClientException_whenServerReturns400() {
+        wireMock.stubFor(post(urlEqualTo("/chat/completions"))
+                .willReturn(aResponse().withStatus(400)));
+
+        assertThatThrownBy(() -> llmClient.sendMessages(List.of(new Message("user", "hi"))))
+                .isInstanceOf(LlmClientException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void sendMessages_throwsLlmClientException_whenServerReturns401() {
+        wireMock.stubFor(post(urlEqualTo("/chat/completions"))
+                .willReturn(aResponse().withStatus(401)));
+
+        assertThatThrownBy(() -> llmClient.sendMessages(List.of(new Message("user", "hi"))))
+                .isInstanceOf(LlmClientException.class)
+                .hasMessageContaining("401");
+    }
+
+    @Test
+    void sendMessages_retries_whenServerReturns429_thenSucceeds() {
+        wireMock.stubFor(post(urlEqualTo("/chat/completions"))
+                .inScenario("retry-429")
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willReturn(aResponse().withStatus(429))
+                .willSetStateTo("recovered"));
+        wireMock.stubFor(post(urlEqualTo("/chat/completions"))
+                .inScenario("retry-429")
+                .whenScenarioStateIs("recovered")
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(RESPONSE_BODY)));
+
+        String result = llmClient.sendMessages(List.of(new Message("user", "hi")));
+
+        assertThat(result).isEqualTo("hello");
+        assertThat(wireMock.findAll(postRequestedFor(urlEqualTo("/chat/completions"))))
+                .hasSize(2);
+    }
+
+    @Test
+    void sendMessages_retries_whenServerReturns500_thenSucceeds() {
+        wireMock.stubFor(post(urlEqualTo("/chat/completions"))
+                .inScenario("retry-500")
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willReturn(aResponse().withStatus(500))
+                .willSetStateTo("recovered"));
+        wireMock.stubFor(post(urlEqualTo("/chat/completions"))
+                .inScenario("retry-500")
+                .whenScenarioStateIs("recovered")
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(RESPONSE_BODY)));
+
+        String result = llmClient.sendMessages(List.of(new Message("user", "hi")));
+
+        assertThat(result).isEqualTo("hello");
+        assertThat(wireMock.findAll(postRequestedFor(urlEqualTo("/chat/completions"))))
+                .hasSize(2);
+    }
+
+    @Test
+    void sendMessages_throwsLlmUnavailableException_whenServerReturns429_andRetriesExhausted() {
+        wireMock.stubFor(post(urlEqualTo("/chat/completions"))
+                .willReturn(aResponse().withStatus(429)));
+
+        assertThatThrownBy(() -> llmClient.sendMessages(List.of(new Message("user", "hi"))))
+                .isInstanceOf(LlmUnavailableException.class);
+        assertThat(wireMock.findAll(postRequestedFor(urlEqualTo("/chat/completions"))))
+                .hasSize(4);
     }
 
     @Test

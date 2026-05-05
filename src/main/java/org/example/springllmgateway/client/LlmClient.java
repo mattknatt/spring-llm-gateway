@@ -2,6 +2,7 @@ package org.example.springllmgateway.client;
 
 import lombok.RequiredArgsConstructor;
 import org.example.springllmgateway.config.LlmProperties;
+import org.example.springllmgateway.exception.LlmClientException;
 import org.example.springllmgateway.exception.LlmUnavailableException;
 import org.example.springllmgateway.model.Message;
 import org.springframework.resilience.annotation.Retryable;
@@ -31,8 +32,10 @@ public class LlmClient {
                 .uri("/chat/completions")
                 .body(request)
                 .retrieve()
-                .onStatus(status -> status.value() == 429 || status.value() == 503,
+                .onStatus(status -> status.value() == 429 || status.is5xxServerError(),
                         (req, res) -> { throw new LlmUnavailableException("LLM unavailable"); })
+                .onStatus(status -> status.is4xxClientError() && status.value() != 429,
+                        (req, res) -> { int code = res.getStatusCode().value(); throw new LlmClientException(code, "LLM rejected request with status " + code); })
                 .body(LlmResponse.class);
         if (response == null || response.choices() == null || response.choices().isEmpty()) {
             throw new IllegalStateException("LLM returned no choices");
