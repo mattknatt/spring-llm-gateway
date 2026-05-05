@@ -14,6 +14,15 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(LlmClientException.class)
+    public ResponseEntity<Map<String, Object>> handleLlmClientError(LlmClientException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", 502);
+        body.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
+    }
+
     @ExceptionHandler(LlmUnavailableException.class)
     public ResponseEntity<Map<String, Object>> handleLlmUnavailable(LlmUnavailableException ex) {
         Map<String, Object> body = new LinkedHashMap<>();

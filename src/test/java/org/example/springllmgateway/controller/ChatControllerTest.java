@@ -1,5 +1,6 @@
 package org.example.springllmgateway.controller;
 
+import org.example.springllmgateway.exception.LlmClientException;
 import org.example.springllmgateway.exception.LlmUnavailableException;
 import org.example.springllmgateway.model.ChatResponse;
 import org.example.springllmgateway.service.ChatService;
@@ -57,6 +58,20 @@ class ChatControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.message").exists());
+    }
+
+    @Test
+    void post_returns502_whenServiceThrowsLlmClientException() throws Exception {
+        when(chatService.chat(any())).thenThrow(new LlmClientException("LLM rejected request with status 401"));
+
+        mockMvc.perform(post("/api/v1/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"personality":"helper","message":"hi","sessionId":"s1"}
+                                """))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.status").value(502))
+                .andExpect(jsonPath("$.message").value("LLM rejected request with status 401"));
     }
 
     @Test
