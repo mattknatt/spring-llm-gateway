@@ -6,7 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record LlmProperties(
         String url,
         String key,
-        String model
+        String model,
+        String allowedOrigin
 ) {
     @Override
     public String toString() {
