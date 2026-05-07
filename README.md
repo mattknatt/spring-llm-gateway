@@ -9,6 +9,7 @@ A Spring Boot middleware service that acts as a bridge between clients and a Lar
 - [Prerequisites](#prerequisites)
 - [Configuration](#configuration)
 - [Running the Application](#running-the-application)
+- [Deployment](#deployment)
 - [API Reference](#api-reference)
 - [Personalities](#personalities)
 - [Conversation Memory](#conversation-memory)
@@ -75,6 +76,7 @@ All sensitive values are read from environment variables. Set the following befo
 | `LLM_API_URL` | Base URL of the LLM API | `https://openrouter.ai/api/v1` |
 | `LLM_API_KEY` | Bearer token / API key | `sk-or-...` |
 | `LLM_API_MODEL` | Model identifier to use | `openai/gpt-4o-mini` |
+| `ALLOWED_ORIGIN` | Frontend origin allowed by CORS | `https://your-app.vercel.app` |
 
 These map to `application.properties`:
 
@@ -82,6 +84,7 @@ These map to `application.properties`:
 llm.api.url=${LLM_API_URL}
 llm.api.key=${LLM_API_KEY}
 llm.api.model=${LLM_API_MODEL}
+llm.api.allowed-origin=${ALLOWED_ORIGIN}
 ```
 
 You can provide them via a `.env` file (loaded by your shell or IDE), system environment variables, or a `-D` flag at startup.
@@ -94,7 +97,7 @@ You can provide them via a `.env` file (loaded by your shell or IDE), system env
 # Export credentials
 export LLM_API_URL=https://openrouter.ai/api/v1
 export LLM_API_KEY=your-api-key
-export LLM_API_MODEL=openai/gpt-4o-mini
+export LLM_API_MODEL=openrouter/free
 
 # Build and run
 ./mvnw spring-boot:run
@@ -103,6 +106,63 @@ export LLM_API_MODEL=openai/gpt-4o-mini
 The service starts on port `8080` by default.
 
 Swagger UI is available at: `http://localhost:8080/swagger-ui.html`
+
+---
+
+## Deployment
+
+### Backend — Fly.io
+
+The application is deployed on [Fly.io](https://fly.io) and built from the `Dockerfile` at the repo root using a two-stage build (JDK build → JRE runtime image). The JVM is constrained to respect the container memory limit so it runs reliably on a 512 MB machine.
+
+**First-time setup**
+
+```bash
+fly launch
+fly scale memory 512 -a spring-llm-gateway
+fly secrets set LLM_API_URL=https://openrouter.ai/api/v1
+fly secrets set LLM_API_KEY=your-api-key
+fly secrets set LLM_API_MODEL=openai/gpt-4o-mini
+fly secrets set ALLOWED_ORIGIN=https://your-app.vercel.app
+fly deploy
+```
+
+**Redeploy after changes**
+
+```bash
+fly deploy
+```
+
+**Automated deploys via GitHub Actions**
+
+Pushes to `main` trigger a deploy automatically via `.github/workflows/fly.yml`. Add a `FLY_API_TOKEN` secret to your GitHub repository (generate one with `fly tokens create deploy -a spring-llm-gateway`).
+
+---
+
+### Frontend — Vercel
+
+The frontend is a Vite + React SPA living in a separate repository, deployed on [Vercel](https://vercel.com). It talks to this backend over HTTPS using the native Fetch API.
+
+**How the connection works**
+
+The frontend reads the backend URL from an environment variable at build time:
+
+```
+VITE_API_BASE_URL=https://spring-llm-gateway.fly.dev
+```
+
+This is already set in `.env.production` in the frontend repo. All API calls go to `POST /api/v1/chat` on that base URL.
+
+During local development the frontend uses Vite's dev proxy instead — requests to `/api` are forwarded to `http://localhost:8080`, so no CORS configuration is needed locally.
+
+**CORS**
+
+The backend only accepts requests from the origin set in `ALLOWED_ORIGIN`. Make sure this matches your Vercel deployment URL exactly. If you add a custom domain on Vercel, update the secret and redeploy:
+
+```bash
+fly secrets set ALLOWED_ORIGIN=https://your-custom-domain.com -a spring-llm-gateway
+fly deploy
+```
 
 ---
 
