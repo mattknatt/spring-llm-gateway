@@ -19,4 +19,9 @@ USER spring
 COPY --from=build /app/target/spring-llm-gateway-*.jar app.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java",
+    "-XX:+UseContainerSupport",
+    "-XX:MaxRAMPercentage=70.0",
+    "-XX:+UseSerialGC",
+    "-XX:MaxMetaspaceSize=96m",
+    "-jar", "app.jar"]
